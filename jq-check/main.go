@@ -1,83 +1,106 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"github.com/itchyny/gojq"
+	"github.com/kuberhealthy/kuberhealthy/v2/pkg/checks/external/nodeCheck"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/kuberhealthy/kuberhealthy/v2/pkg/checks/external"
-	checkclient "github.com/kuberhealthy/kuberhealthy/v2/pkg/checks/external/checkclient"
+	"github.com/kuberhealthy/kuberhealthy/v2/pkg/checks/external/checkclient"
+	log "github.com/sirupsen/logrus"
 )
+
+var (
+	TargetURL       = os.Getenv("TARGET_URL")
+	ExpectedResult  = os.Getenv("EXPECTED_RESULT")
+	JqQuery         = os.Getenv("JQ_QUERY")
+	TimeoutDuration = os.Getenv("TIMEOUT_DURATION")
+)
+
+func init() {
+	nodeCheck.EnableDebugOutput()
+
+	if TargetURL == "" {
+		reportErrorAndStop("No URL provided in YAML")
+	}
+	if ExpectedResult == "" {
+		reportErrorAndStop("No expected result provided in YAML")
+	}
+	if JqQuery == "" {
+		reportErrorAndStop("No jq query provided in YAML")
+	}
+}
 
 // Inspired by https://github.com/kuberhealthy/kuberhealthy/blob/master/cmd/http-content-check/main.go
 func main() {
 
 	log.Println("Using kuberhealthy reporting url", os.Getenv(external.KHReportingURL))
 
+	checkTimeLimit := time.Minute * 1
+	ctx, cancelFunc := context.WithTimeout(context.Background(), checkTimeLimit)
+	defer cancelFunc()
+
 	var err error
-	if doCheck() {
+	err = nodeCheck.WaitForKuberhealthy(ctx)
+	if err != nil {
+		log.Errorln("Error waiting for kuberhealthy endpoint to be contactable by checker pod with error:" + err.Error())
+	}
+
+	ok, err := doCheck()
+	if !ok {
+		if err != nil {
+			reportErrorAndStop(err.Error())
+		}
+
+	} else {
 		log.Println("Reporting success...")
 		err = checkclient.ReportSuccess()
 		if err != nil {
-			log.Println(err.Error())
+			log.Errorln("failed to report success", err)
+			os.Exit(1)
 		}
-	} else {
-		log.Println("Reporting failure...")
-		err = checkclient.ReportFailure([]string{"Test has failed!"})
-		if err != nil {
-			log.Println(err.Error())
-		}
+		log.Infoln("Successfully reported to Kuberhealthy")
 	}
-
-	if err != nil {
-		log.Println("Error reporting to Kuberhealthy servers:", err)
-		return
-	}
-	log.Println("Successfully reported to Kuberhealthy servers")
 }
 
-func doCheck() bool {
-	jqQuery := os.Getenv("JQ_QUERY")
-	expectedResult := os.Getenv("EXPECTED_RESULT")
-	targetURL := os.Getenv("TARGET_URL")
+func doCheck() (bool, error) {
 
-	query, err := gojq.Parse(jqQuery)
+	query, err := gojq.Parse(JqQuery)
 	if err != nil {
-		log.Fatalln(err)
-		return false
+		return false, err
 	}
-	data, err := getURLContent(targetURL)
-	log.Println("Attempting to fetch content from: " + targetURL)
+	data, err := getURLContent(TargetURL)
+	log.Println("Attempting to fetch content from: " + TargetURL)
 	if err != nil {
-		log.Fatalln(err)
-		return false
+		return false, err
 	}
+	log.Println("Attempting run query against content")
 	iter := query.Run(data)
 	for {
 		v, ok := iter.Next()
 		if !ok {
 			log.Println("No match found")
-			return false
+			return false, errors.New("no match found")
 		}
 		if err, ok := v.(error); ok {
 			log.Fatalln(err)
-			return false
+			return false, err
 		}
-		if v == expectedResult {
+		if v == ExpectedResult {
 			log.Println("Found match")
-			return true
+			return true, nil
 		}
 	}
 }
 
 func getURLContent(url string) (map[string]any, error) {
-	timeoutDuration := os.Getenv("TIMEOUT_DURATION")
-
-	dur, err := time.ParseDuration(timeoutDuration)
+	dur, err := time.ParseDuration(TimeoutDuration)
 	if err != nil {
 		return nil, err
 	}
@@ -96,4 +119,16 @@ func getURLContent(url string) (map[string]any, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+// reportErrorAndStop reports to kuberhealthy of error and exits program when called
+func reportErrorAndStop(s string) {
+	log.Infoln("attempting to report error to kuberhealthy:", s)
+	err := checkclient.ReportFailure([]string{s})
+	if err != nil {
+		log.Errorln("failed to report to kuberhealthy servers:", err)
+		os.Exit(1)
+	}
+	log.Infoln("Successfully reported to Kuberhealthy")
+	os.Exit(0)
 }
