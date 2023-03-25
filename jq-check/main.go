@@ -67,7 +67,6 @@ func doCheck() bool {
 			log.Fatalln(err)
 			return false
 		}
-		log.Printf("Query result: %#v\n", v)
 		if v == expectedResult {
 			log.Println("Found match")
 			return true

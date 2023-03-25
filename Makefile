@@ -7,10 +7,8 @@ build:
 	docker build --no-cache --pull -t ${IMAGE}:${TAG} -f Dockerfile .
 build-dev:
 	docker build -t ${IMAGE}:dev -f Dockerfile .
-test:
-	build-dev
+test: build-dev push
 	kubectl delete -f check.yaml
 	kubectl apply -f check.yaml
-push:
-	build
+push: build
 	docker push ${IMAGE}:${TAG}
