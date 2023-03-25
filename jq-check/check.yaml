@@ -1,0 +1,26 @@
+apiVersion: comcast.github.io/v1
+kind: KuberhealthyCheck
+metadata:
+  name: jq-check
+spec:
+  runInterval: 30s
+  timeout: 2m
+  podSpec:
+    containers:
+      - env:
+          - name: JQ_QUERY
+            value: ".status"
+          - name: EXPECTED_RESULT
+            value: "UP"
+          - name: TARGET_URL
+            value: "some-rest-api.dev"
+          - name: TIMEOUT_DURATION
+            value: "5"
+        image: ghcr.io/martinheinz/kuberhealthy-custom-checks/jq-check:latest
+        imagePullPolicy: Always
+        name: main
+
+# Sample Data:
+# {
+#   "status": "UP"
+# }
