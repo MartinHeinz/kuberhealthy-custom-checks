@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: synthetics
+  labels:
+    prometheus: prometheus
+    release: monitoring
+spec:
+  groups:
+    - name: synthetics
+      rules:
+        - alert: JqCheckFailed
+          expr: label_replace(kuberhealthy_check{check="default/jq-check"}, "current_master", "$1", "pod", "(.+)") * on (current_master) group_left() topk(1, kuberhealthy_running{}) < 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: JqCheckFailed
+            description: "jq check ({{ $labels.check }}) failed with: {{ $labels.error }}"

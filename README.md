@@ -31,3 +31,5 @@ kubectl apply -f jq-check/check.yaml
 kubectl port-forward -n kuberhealthy svc/kuberhealthy 8080:80
 # ... check "localhost:8080" and "localhost:8080/metrics" for check reports
 ```
+
+If running a Prometheus stack in cluster, you can also apply sample PrometheusRule(s) located in `*-check/prom-rule.yaml`
