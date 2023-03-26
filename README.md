@@ -20,7 +20,7 @@ minikube delete && minikube start \
   --extra-config=scheduler.bind-address=0.0.0.0 \
   --extra-config=controller-manager.bind-address=0.0.0.0
   
-# Deploy kuberhealhy:
+# Deploy kuberhealthy:
 helm repo add kuberhealthy https://kuberhealthy.github.io/kuberhealthy/helm-repos
 helm install -n kuberhealthy kuberhealthy kuberhealthy/kuberhealthy --create-namespace  # --values values.yaml
 
@@ -29,7 +29,7 @@ kubectl apply -f jq-check/check.yaml
 # ... check logs of check Pod(s)
 
 kubectl port-forward -n kuberhealthy svc/kuberhealthy 8080:80
-# ... check "localhost:8080" and "localhost:8080/metrics" for check reports
+# ... check "localhost:8080" and "localhost:8080/metrics" for check status/metrics
 ```
 
-If running a Prometheus stack in cluster, you can also apply sample PrometheusRule(s) located in `*-check/prom-rule.yaml`
+If running a Prometheus stack in a cluster, you can also apply sample _PrometheusRule(s)_ located in `*-check/prom-rule.yaml`.

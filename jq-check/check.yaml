@@ -1,7 +1,3 @@
-# kubectl create secret generic regcred \
-#    --from-file=.dockerconfigjson=pullsecret.json \
-#    --type=kubernetes.io/dockerconfigjson
-
 apiVersion: comcast.github.io/v1
 kind: KuberhealthyCheck
 metadata:
@@ -10,8 +6,6 @@ spec:
   runInterval: 15m
   timeout: 2m
   podSpec:
-    imagePullSecrets:
-      - name: regcred
     containers:
       - env:
           - name: JQ_QUERY
