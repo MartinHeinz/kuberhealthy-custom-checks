@@ -1,0 +1,48 @@
+apiVersion: comcast.github.io/v1
+kind: KuberhealthyCheck
+metadata:
+  name: jq-check-with-body
+spec:
+  runInterval: 15m
+  timeout: 2m
+  podSpec:
+    containers:
+      - env:
+          - name: JQ_QUERY
+            value: ".data"
+          - name: EXPECTED_RESULT
+            value: "some-result-value"
+          - name: TARGET_URL
+            value: 'some.rest.api'
+          - name: TIMEOUT_DURATION
+            value: "5s"
+          - name: REQUEST_DATA
+            value: '{ "key": "value" }'
+          - name: REQUEST_METHOD
+            value: 'POST'
+        envFrom:
+          - configMapRef:
+              name: kh-headers
+          - secretRef:
+              name: kh-secrets
+        image: ghcr.io/martinheinz/kuberhealthy-custom-checks/jq-check-with-body:latest
+        imagePullPolicy: Always
+        name: main
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kh-headers
+data:
+  # Must be prefixed with KH_REQUEST_HEADER_
+  KH_REQUEST_HEADER_AUTH: 'Authorization: Basic ${BASIC_AUTH}'
+  KH_REQUEST_HEADER_CONTENT_TYPE: 'Content-Type: application/json'
+  KH_REQUEST_HEADER_ACCEPT: 'accept: application/json'
+---
+kind: Secret
+apiVersion: v1
+metadata:
+  name: kh-secrets
+stringData:
+  BASIC_AUTH: "c29tZXVzZXI6cGFzc3dvcmQxMjM="
+type: Opaque
